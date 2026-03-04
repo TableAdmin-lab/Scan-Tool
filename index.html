@@ -11,20 +11,30 @@
     <!-- Tesseract.js for OCR (Text Recognition) -->
     <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
     <style>
-        /* Custom overrides for the html5-qrcode library UI */
+        /* Make the reader absolutely fill the background of its container */
         #reader {
-            border: none !important;
+            position: absolute !important;
+            top: 0;
+            left: 0;
             width: 100% !important;
             height: 100% !important;
+            border: none !important;
+            background: black;
         }
+        
+        /* Force the video element to cover the entire screen area */
         #reader video {
             object-fit: cover !important;
-            width: 100% !important;
-            height: 100% !important;
+            width: 100vw !important;
+            height: 100vh !important;
         }
-        /* Hide the library's default UI elements we don't want in full screen */
-        #reader__dashboard_section_csr { display: none !important; }
-        #reader__header_message { display: none !important; }
+        
+        /* Hide the library's default UI elements */
+        #reader__dashboard_section_csr,
+        #reader__header_message,
+        #reader__status_span { 
+            display: none !important; 
+        }
 
         /* Scanning animation line */
         .scan-line {
@@ -115,7 +125,7 @@
                 class="flex items-center justify-center gap-3 w-full py-5 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:bg-slate-800 active:scale-[0.98] transition-all"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2-2H5a2 2 0 01-2-2V9z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <circle cx="12" cy="13" r="3" />
                 </svg>
                 Live Camera Scan
@@ -143,20 +153,25 @@
     </div>
 
     <!-- FULL SCREEN SCANNER OVERLAY -->
-    <div id="scanner-overlay" class="fixed inset-0 z-50 bg-black hidden flex-col transition-opacity duration-300">
-        <div class="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-[60]">
-            <h2 class="text-white font-semibold text-lg drop-shadow-md">Scan Barcode or Text</h2>
-            <button id="close-scanner" class="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
+    <div id="scanner-overlay" class="fixed inset-0 z-50 bg-black hidden transition-opacity duration-300">
+        <!-- The Camera Feed (Background) -->
+        <div id="reader" class="absolute inset-0 z-0"></div>
 
-        <div class="flex-1 relative overflow-hidden">
-            <div id="reader"></div>
-            <div class="absolute inset-0 border-[40px] border-black/40 pointer-events-none z-10 flex items-center justify-center">
-                <div class="w-72 h-48 border-2 border-white/50 rounded-2xl relative">
+        <!-- Overlay UI (Foreground) -->
+        <div class="absolute inset-0 z-10 flex flex-col pointer-events-none">
+            <!-- Header -->
+            <div class="p-6 flex justify-between items-center pointer-events-auto">
+                <h2 class="text-white font-semibold text-lg drop-shadow-md">Scan Barcode or Text</h2>
+                <button id="close-scanner" class="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Viewfinder Area -->
+            <div class="flex-1 flex items-center justify-center">
+                <div class="relative w-72 h-48 border-2 border-white/30 rounded-2xl">
                     <div class="scan-line"></div>
                     <div class="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-blue-500"></div>
                     <div class="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-blue-500"></div>
@@ -164,17 +179,17 @@
                     <div class="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-blue-500"></div>
                 </div>
             </div>
-        </div>
 
-        <!-- OCR Specific Control -->
-        <div class="p-8 bg-black/80 text-center z-20 flex flex-col items-center gap-4">
-            <p class="text-slate-300 text-sm">Target barcode for auto-scan or tap below for text recognition</p>
-            <button id="capture-ocr-btn" class="px-8 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-500 active:scale-95 transition-all flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Recognize Text (OCR)
-            </button>
+            <!-- Footer Controls -->
+            <div class="p-8 bg-gradient-to-t from-black/80 to-transparent flex flex-col items-center gap-4 pointer-events-auto">
+                <p class="text-slate-300 text-sm">Target barcode or tap for text recognition</p>
+                <button id="capture-ocr-btn" class="px-8 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-500 active:scale-95 transition-all flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Recognize Text (OCR)
+                </button>
+            </div>
         </div>
     </div>
 
@@ -280,15 +295,17 @@
             try {
                 resultInfo.classList.add('hidden');
                 overlay.classList.remove('hidden');
+                overlay.style.display = 'flex'; // Use display flex for the overlay container
                 overlay.style.opacity = '1';
                 
                 html5QrCode = new Html5Qrcode("reader");
                 
                 const config = { 
-                    fps: 20, 
+                    fps: 25, 
                     qrbox: (viewWidth, viewHeight) => {
                         const minDim = Math.min(viewWidth, viewHeight);
-                        return { width: minDim * 0.8, height: minDim * 0.5 };
+                        // Make the capture zone relative to the viewfinder UI
+                        return { width: 280, height: 180 };
                     },
                     aspectRatio: window.innerWidth / window.innerHeight
                 };
@@ -316,7 +333,10 @@
             }
             isScanning = false;
             overlay.style.opacity = '0';
-            setTimeout(() => overlay.classList.add('hidden'), 300);
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.style.display = 'none';
+            }, 300);
         }
 
         // Capture frame from video for Tesseract
